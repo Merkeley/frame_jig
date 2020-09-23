@@ -1,11 +1,15 @@
 '''
 
     File: frame_jig.py
-        Class definitions for a general purpose data frame cleaner and builder.
-    The steps for consolidating data into a single structure are similar for many
-    data projects.  Pandas provides some powerful tools for merging data frames.
-    The classes in this file attempt to put a wrapper around those dataframes so
-    the cleaning/merging pipeline can be standardized for any project.
+        Create a class definition for storing the data and steps related to 
+    consolidating multiple csv data files into a single data frame.  The general
+    processing steps for each data file are :
+        1. Open and import data file.
+        2. Clean the imported data
+        3. Merge/Join the data with other files in a dataset
+    The class DFBuilder provides a general structure for this process/pipeline.  The
+    Attributes of the class store the data associated with the process.  The methods
+    implement the steps outlined above.
 
     Author: M Boals
 
@@ -109,7 +113,7 @@ class DFBuilder:
         '''
         # Save the values if there is something to save
         if files is not None:
-            if isinstance(files[0]) == list:
+            if isinstance(files[0], list) :
                 self._files = copy(files)
             else:
                 self._files = [copy(files)]
@@ -148,6 +152,10 @@ class DFBuilder:
 
             Arguments:
                 path - string containing the base path for data files.
+                    A path value of None will make no changes to the Attribute
+                       and simply return the current value.
+
+            Return: Current value of attribute path
 
             Description:
                 Accessor method for the path attribute.
@@ -160,13 +168,20 @@ class DFBuilder:
         '''
             Method: files
 
-            Arguments:
+            Arguments: 
+                files - list of strings contining the raw data file names associated
+                    with this dataset.  These file names are relative to the
+                    value in the path attribute.  Path will be combined with
+                    files to create the full path to the files.
+                    A files value of None will make no changes to the Attribute
+
+            Return: Current value of attribute files
 
             Description:
                 Accessor method for the files attribute.
         '''
         if files is not None:
-            if isinstance(files[0]) == list:
+            if isinstance(files[0], list):
                 self._files = copy(files)
             else:
                 self._files = [copy(files)]
@@ -177,6 +192,10 @@ class DFBuilder:
             Method: columns
 
             Arguments:
+                columns - list of strings containing the names of the columns from the
+                    raw CSV data file that will be kept in the final dataset.
+                    A value of None for columns will result in no changes to the
+                        columns attribte and simply return the current value.
 
             Description:
                 Accessor method for the columns attribute.
@@ -185,14 +204,41 @@ class DFBuilder:
             self._keep_columns = copy(columns)
         return self._keep_columns
 
+    def suffixes(self, suffixes=None) :
+        '''
+            Method: suffixes
+
+            Arguments:
+                suffixes - list of strings containing the suffixes that will be 
+                    appended to the column names when the data frames are merged.
+                    A suffixes value of None will result in no change to the 
+                        suffixes attibute and simply return the current value.
+
+            Return: Current value of attribute suffixes
+
+            Description:
+                Accessor method for the columns attribute.
+        '''
+        if suffixes is not None:
+            self._suffixes = suffixes
+
+        return self._suffixes
+
     # Define a place holder for this method.  Override for specific cases
     def clean(self, frame):
         '''
-            Method: file_open
+            Method: clean
 
             Arguments:
+                frame - the dataframe that will be cleaned.
+
+            Return: cleaned dataframe
 
             Description:
+                This method is one of the steps in the processing of the raw
+            data files into the full dataset.  This method should be overloaded
+            with the cleaning process specific to a given dataset.
+
         '''
         # Only save the columns specified by keep_columns
         return frame[self._keep_columns]
@@ -206,12 +252,21 @@ class DFBuilder:
             Arguments:
                 file_name - text string containing
 
+            Return:
+                next file pointer associated with the list of file names
+
             Description:
+                This method implements the first step in the process of building
+            the complete data set.  This method is implemented as a generator
+            so filename can be either a single string or a list of strings.
+            This method should be overloaded for specialized file access
+            requirements.
+
         '''
         try:
             # Try to open the file
             # Note that we are assuming this is opening as a text file
-            file_p = open(file_name, 'r')
+            file_p = open(file_name, 'rb')
         except OSError:
             # Manage the possible errors
             print('Error opening file {}'.format(file_name))
@@ -223,13 +278,18 @@ class DFBuilder:
     # Define the methods that actually do the work
     def build(self):
         '''
+            Method: build
+
+            Arguments: None
+
+            Return: 
+                complete processed (cleaned and consolidated) dataset as a 
+            Pandas dataframe.
+
             Description:
                 The build method uses the attributes that have been pre-configured
             to walk through the process of building the a dataframe from
             multiple input files.
-
-            Return:
-                consolidated, cleaned pandas.DataFrame
 
         '''
         # Build the dataframe from the specified parameters
@@ -240,14 +300,14 @@ class DFBuilder:
         full_file_list = []
         for group in self._files:
             for block in group:
-                full_file_list.extend(glob.glob(self._path+block))
+                tmp_files = glob.glob(self._path+block)
+                full_file_list.extend(tmp_files)
 
 
         big_df = None
 
         # for each of the files
         for idx, file_name in enumerate(full_file_list):
-            print(file_name, self._file_params)
             for file_p in self.file_open(file_name):
                 temp_df = pd.read_csv(file_p, **self._file_params)
 
